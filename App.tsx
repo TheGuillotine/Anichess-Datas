@@ -18,6 +18,7 @@ const App: React.FC = () => {
 
   const refreshMarket = useCallback(async () => {
     const mkt = await fetchMarketData();
+    console.log("[App] Received market data:", mkt);
     setMarket(mkt);
   }, []);
 

@@ -1,6 +1,11 @@
 
 const OPENSEA_API_KEY = import.meta.env.VITE_OPENSEA_API_KEY || "";
 
+// WETH Address for ETH Price (Ethereum Mainnet)
+const WETH_ADDRESS = "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2";
+// CHECK Token Address
+const CHECK_ADDRESS = "0x9126236476efba9ad8ab77855c60eb5bf37586eb";
+
 export interface MarketData {
   ethPrice: number;
   checkPrice: number;
@@ -20,41 +25,67 @@ export interface MarketEvent {
 }
 
 export const fetchMarketData = async (): Promise<MarketData> => {
-  // 1. Fetch current ETH price (CoinGecko) and $CHECK data (DexScreener) INDEPENDENTLY
-  let ethPrice = 2400;
+  console.log("[MarketService] fetchMarketData via DexScreener called");
 
+  // 1. Fetch ETH Price (using specific USDC/ETH pair 0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640)
+  let ethPrice = 2400; // Default fallback
   try {
-    const ethResponse = await fetch("/api/coingecko/api/v3/simple/price?ids=ethereum&vs_currencies=usd");
-    if (ethResponse.ok) {
-      const ethData = await ethResponse.json();
-      ethPrice = ethData.ethereum?.usd || 2400;
+    const wethResponse = await fetch("https://api.dexscreener.com/latest/dex/pairs/ethereum/0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640");
+    if (wethResponse.ok) {
+      const data = await wethResponse.json();
+      const pair = data.pair || data.pairs?.[0];
+      if (pair) {
+        ethPrice = parseFloat(pair.priceUsd);
+        console.log("[MarketService] ETH Price (DexScreener Pair):", ethPrice);
+      }
     } else {
-      console.warn("ETH Price fetch failed:", ethResponse.status);
+      console.warn("[MarketService] ETH Price fetch failed:", wethResponse.status);
     }
   } catch (e) {
-    console.warn("ETH Price fetch error (likely 429 or network):", e);
+    console.warn("[MarketService] ETH Price fetch error:", e);
   }
 
-  let checkPrice = 0.892;
+  // 2. Fetch $CHECK data (DexScreener)
+  let checkPrice = 0.000;
   let check24hChange = 0;
 
   try {
-    const checkResponse = await fetch("https://api.dexscreener.com/latest/dex/tokens/0x9126236476efba9ad8ab77855c60eb5bf37586eb");
+    const dexUrl = `https://api.dexscreener.com/latest/dex/tokens/${CHECK_ADDRESS}`;
+    console.log("[MarketService] Fetching DexScreener (CHECK):", dexUrl);
+
+    const checkResponse = await fetch(dexUrl);
+
     if (checkResponse.ok) {
-      const checkDataRaw = await checkResponse.json();
-      const bestPair = checkDataRaw.pairs?.[0];
+      const data = await checkResponse.json();
+
+      // Find a pair where CHECK is the BASE token to get its price
+      // (DexScreener priceUsd is always for the base token)
+      const bestPair = data.pairs?.find((p: any) => p.baseToken.address.toLowerCase() === CHECK_ADDRESS.toLowerCase());
+
       if (bestPair) {
         checkPrice = parseFloat(bestPair.priceUsd);
         check24hChange = bestPair.priceChange.h24;
+        console.log("[MarketService] Parsed CHECK Price:", checkPrice);
+      } else if (data.pairs?.[0]) {
+        // Fallback: If CHECK is quote, we might need to invert, but usually DexScreener puts the main token as base in search
+        // For now, let's log if we didn't find it as base
+        console.warn("[MarketService] CHECK not found as Base Token in first pair. Base:", data.pairs[0].baseToken.symbol);
+        // Attempt to use first pair anyway if we are desperate, but it might be wrong if CHECK is quote.
+        if (data.pairs[0].baseToken.symbol === 'CHECK' || data.pairs[0].baseToken.symbol === 'Check') {
+          checkPrice = parseFloat(data.pairs[0].priceUsd);
+          check24hChange = data.pairs[0].priceChange.h24;
+        }
+      } else {
+        console.warn("[MarketService] No pairs found for CHECK");
       }
     } else {
-      console.warn("DexScreener fetch failed:", checkResponse.status);
+      console.warn("[MarketService] CHECK fetch failed:", checkResponse.status);
     }
   } catch (e) {
-    console.warn("DexScreener fetch error:", e);
+    console.error("[MarketService] CHECK fetch error:", e);
   }
 
-  // 2. Mock History based on trend (since APIs are limited)
+  // 3. Mock History based on trend (since APIs are limited)
   const trend = check24hChange >= 0 ? 1 : -1;
   const volatility = 0.05;
 
@@ -69,7 +100,7 @@ export const fetchMarketData = async (): Promise<MarketData> => {
     };
   });
 
-  // 3. Fetch Floor Price
+  // 4. Fetch Floor Price
   let floorPrice = 0.142;
   let floorImage = "https://i.seadn.io/s/raw/files/84041d8e6c469f64989635741f22384a.png";
 
@@ -112,7 +143,7 @@ export const fetchMarketData = async (): Promise<MarketData> => {
     console.error("OpenSea Data Fetch Error:", error);
   }
 
-  return {
+  const finalResult = {
     ethPrice,
     checkPrice,
     check24hChange,
@@ -120,6 +151,8 @@ export const fetchMarketData = async (): Promise<MarketData> => {
     floorNftImage: floorImage,
     checkHistory
   };
+  console.log("[MarketService] returning:", finalResult);
+  return finalResult;
 };
 
 export const fetchMarketActivity = async (): Promise<MarketEvent[]> => {

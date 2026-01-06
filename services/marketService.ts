@@ -1,5 +1,5 @@
 
-const OPENSEA_API_KEY = "b4503581c4a44ecb94b1b0fb34889e40";
+const OPENSEA_API_KEY = import.meta.env.VITE_OPENSEA_API_KEY || "";
 
 export interface MarketData {
   ethPrice: number;
@@ -22,19 +22,26 @@ export interface MarketEvent {
 export const fetchMarketData = async (): Promise<MarketData> => {
   try {
     // 1. Fetch current ETH and $CHECK prices with 24h change
-    const cgResponse = await fetch(
-      "https://api.coingecko.com/api/v3/simple/price?ids=ethereum,anichess&vs_currencies=usd&include_24hr_change=true"
-    );
-    const cgData = await cgResponse.json();
-    const ethPrice = cgData.ethereum?.usd || 2400;
-    const checkPrice = cgData.anichess?.usd || 0.892;
-    const check24hChange = cgData.anichess?.usd_24h_change || 0;
+    const [ethResponse, checkResponse] = await Promise.all([
+      fetch("/api/coingecko/api/v3/simple/price?ids=ethereum&vs_currencies=usd"),
+      fetch("/api/coingecko/api/v3/simple/token_price/base?contract_addresses=0x9126236476efba9ad8ab77855c60eb5bf37586eb&vs_currencies=usd&include_24hr_change=true")
+    ]);
+
+    const ethData = await ethResponse.json();
+    const checkData = await checkResponse.json();
+
+    // Checkmate contract: 0x9126236476efba9ad8ab77855c60eb5bf37586eb
+    const CHECK_CONTRACT = "0x9126236476efba9ad8ab77855c60eb5bf37586eb";
+
+    const ethPrice = ethData.ethereum?.usd || 2400;
+    const checkPrice = checkData[CHECK_CONTRACT]?.usd || 0.892;
+    const check24hChange = checkData[CHECK_CONTRACT]?.usd_24h_change || 0;
 
     // 2. Fetch $CHECK 7-day history for the sparkline
     let checkHistory: { date: string; value: number }[] = [];
     try {
       const cgHistoryResponse = await fetch(
-        "https://api.coingecko.com/api/v3/coins/anichess/market_chart?vs_currency=usd&days=7&interval=daily"
+        `/api/coingecko/api/v3/coins/base/contract/${CHECK_CONTRACT}/market_chart?vs_currency=usd&days=7`
       );
       const cgHistoryData = await cgHistoryResponse.json();
       if (cgHistoryData.prices && cgHistoryData.prices.length > 0) {
@@ -67,7 +74,7 @@ export const fetchMarketData = async (): Promise<MarketData> => {
       }
     );
     const listingsData = await osListingsResponse.json();
-    
+
     let floorPrice = 0.142;
     let floorImage = "https://i.seadn.io/s/raw/files/84041d8e6c469f64989635741f22384a.png";
 
@@ -75,7 +82,7 @@ export const fetchMarketData = async (): Promise<MarketData> => {
       const bestListing = listingsData.listings[0];
       const priceValue = bestListing.price?.current?.value;
       const decimals = bestListing.price?.current?.decimals || 18;
-      
+
       if (priceValue) {
         floorPrice = parseFloat(priceValue) / Math.pow(10, decimals);
       }
@@ -110,9 +117,9 @@ export const fetchMarketData = async (): Promise<MarketData> => {
       check24hChange: 0,
       ethernalsFloorEth: 0.142,
       floorNftImage: "https://i.seadn.io/s/raw/files/84041d8e6c469f64989635741f22384a.png",
-      checkHistory: Array(7).fill(0).map((_, i) => ({ 
-        date: i.toString(), 
-        value: 0.892 * (0.95 + Math.random() * 0.1) 
+      checkHistory: Array(7).fill(0).map((_, i) => ({
+        date: i.toString(),
+        value: 0.892 * (0.95 + Math.random() * 0.1)
       }))
     };
   }
@@ -129,13 +136,14 @@ export const fetchMarketActivity = async (): Promise<MarketEvent[]> => {
         }
       }
     );
+
     const data = await response.json();
-    
+
     return (data.asset_events || []).slice(0, 5).map((ev: any) => ({
       id: ev.id || Math.random().toString(),
       type: ev.event_type === 'item_sold' ? 'sale' : 'listing',
       assetName: ev.nft?.name || "Ethernal",
-      price: ev.payment?.quantity 
+      price: ev.payment?.quantity
         ? (parseFloat(ev.payment.quantity) / Math.pow(10, ev.payment.decimals || 18)).toFixed(3)
         : undefined,
       time: new Date(ev.closing_date || ev.event_timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),

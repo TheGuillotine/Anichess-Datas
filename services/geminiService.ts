@@ -2,7 +2,8 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { AIInsight } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const apiKey = process.env.API_KEY || "TEST_KEY";
+const ai = new GoogleGenAI({ apiKey });
 
 export interface TweetInsight {
   id: string;

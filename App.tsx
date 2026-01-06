@@ -2,16 +2,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ActivityList } from './components/ActivityList';
 import { MarketChart } from './components/MarketChart';
-import { getAnichessTweets, TweetInsight } from './services/geminiService';
 import { fetchMarketData, fetchMarketActivity, MarketData, MarketEvent } from './services/marketService';
 
 const App: React.FC = () => {
-  const [tweets, setTweets] = useState<TweetInsight[]>([]);
   const [marketEvents, setMarketEvents] = useState<MarketEvent[]>([]);
   const [loadingFeeds, setLoadingFeeds] = useState(true);
   const [market, setMarket] = useState<MarketData>({
     ethPrice: 2400,
-    checkPrice: 0.892,
+    checkPrice: 0.000,
     check24hChange: 0,
     ethernalsFloorEth: 0.142,
     floorNftImage: "https://i.seadn.io/s/raw/files/84041d8e6c469f64989635741f22384a.png",
@@ -23,27 +21,23 @@ const App: React.FC = () => {
     setMarket(mkt);
   }, []);
 
-  const refreshFeeds = useCallback(async () => {
+  const refreshActivity = useCallback(async () => {
     setLoadingFeeds(true);
-    const [tw, ev] = await Promise.all([
-      getAnichessTweets(),
-      fetchMarketActivity()
-    ]);
-    setTweets(tw);
+    const ev = await fetchMarketActivity();
     setMarketEvents(ev);
     setLoadingFeeds(false);
   }, []);
 
   useEffect(() => {
     refreshMarket();
-    refreshFeeds();
+    refreshActivity();
     const mktInterval = setInterval(refreshMarket, 60000);
-    const feedInterval = setInterval(refreshFeeds, 300000); // 5 mins
+    const feedInterval = setInterval(refreshActivity, 300000); // 5 mins
     return () => {
       clearInterval(mktInterval);
       clearInterval(feedInterval);
     };
-  }, [refreshMarket, refreshFeeds]);
+  }, [refreshMarket, refreshActivity]);
 
   const TIERS = [
     { name: 'Day/Night Ethernal', floorScale: 1, airdrop: 6000 },
@@ -62,9 +56,9 @@ const App: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-6">
-          <a 
-            href="https://anichess.com/" 
-            target="_blank" 
+          <a
+            href="https://anichess.com/"
+            target="_blank"
             rel="noopener noreferrer"
             className="ani-button-primary px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest text-white shadow-[0_0_20px_rgba(14,165,233,0.5)] hover:scale-105 transition-transform"
           >
@@ -74,7 +68,7 @@ const App: React.FC = () => {
       </header>
 
       <main className="pt-28 px-8 max-w-[1500px] mx-auto space-y-8">
-        
+
         {/* Market Hero Blocks */}
         <div className="grid grid-cols-12 gap-8">
           {/* Block 1: Ethernal Floor Price (Large) */}
@@ -82,7 +76,7 @@ const App: React.FC = () => {
             <div className="flex-1 flex flex-col justify-center relative z-10">
               <p className="text-cyan-400 text-[10px] font-black uppercase tracking-[0.2em] mb-4">Market Overview</p>
               <h2 className="text-3xl font-black text-white tracking-tighter uppercase mb-8">Ethernal Floor Price</h2>
-              
+
               <div className="flex items-baseline gap-4 mb-2">
                 <span className="text-6xl font-black text-white tabular-nums tracking-tighter">
                   {market.ethernalsFloorEth.toFixed(3)} <span className="text-2xl font-black text-slate-500">ETH</span>
@@ -98,9 +92,9 @@ const App: React.FC = () => {
 
             <div className="w-1/3 flex items-center justify-center relative z-10">
               <div className="aspect-square w-full max-w-[200px] rounded-2xl overflow-hidden border-4 border-white/5 shadow-2xl rotate-3 group hover:rotate-0 transition-transform duration-500">
-                <img 
-                  src={market.floorNftImage} 
-                  alt="Floor Ethernal" 
+                <img
+                  src={market.floorNftImage}
+                  alt="Floor Ethernal"
                   className="w-full h-full object-cover"
                 />
               </div>
@@ -115,7 +109,7 @@ const App: React.FC = () => {
               <div className="w-10 h-10 bg-cyan-400 rounded-full flex items-center justify-center font-black text-black text-xs shadow-[0_0_15px_rgba(34,211,238,0.3)]">CK</div>
               <h3 className="text-xl font-black text-white uppercase tracking-tighter italic">$CHECK Token</h3>
             </div>
-            
+
             <div className="flex items-center justify-between gap-4 h-24">
               <div className="space-y-1">
                 <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Market Value</p>
@@ -130,7 +124,7 @@ const App: React.FC = () => {
                   <span className="text-slate-500 font-medium ml-1">24H EVOL</span>
                 </p>
               </div>
-              
+
               {/* Sparkline chart with fixed height for reliable rendering */}
               <div className="flex-1 h-16 max-w-[140px] opacity-90">
                 {market.checkHistory && market.checkHistory.length > 0 ? (
@@ -142,7 +136,7 @@ const App: React.FC = () => {
                 )}
               </div>
             </div>
-            
+
             <div className="mt-8 pt-6 border-t border-white/5 flex justify-between items-center">
               <div className="flex flex-col">
                 <span className="text-[9px] font-black text-slate-600 uppercase">Status</span>
@@ -150,10 +144,10 @@ const App: React.FC = () => {
                   <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" /> Live Trading
                 </span>
               </div>
-              <a 
-                href="https://katapult.com" 
-                target="_blank" 
-                rel="noopener noreferrer" 
+              <a
+                href="https://katapult.com"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="bg-white/5 hover:bg-white/10 px-4 py-2 rounded-xl text-[10px] font-black text-white uppercase tracking-widest transition-colors border border-white/5"
               >
                 Buy Token
@@ -172,7 +166,7 @@ const App: React.FC = () => {
             const annualAirdropValueUsd = tier.airdrop * 12 * market.checkPrice;
             const assetCostUsd = currentFloorEth * market.ethPrice;
             const apr = assetCostUsd > 0 ? (annualAirdropValueUsd / assetCostUsd) * 100 : 0;
-            
+
             return (
               <div key={tier.name} className="glass-panel p-8 rounded-[28px] border-t-2 border-t-cyan-500/20 group hover:border-cyan-400/50 transition-all flex flex-col">
                 <h4 className="text-xs font-black text-cyan-400 uppercase tracking-widest mb-6">{tier.name}</h4>
@@ -209,43 +203,11 @@ const App: React.FC = () => {
           })}
         </div>
 
-        {/* Feeds Section */}
-        <div className="grid grid-cols-12 gap-8 pt-8">
-           <div className="col-span-12 lg:col-span-7 glass-panel p-8 rounded-[32px]">
-              <div className="flex justify-between items-center mb-8">
-                 <h3 className="text-xl font-black text-white uppercase tracking-tighter flex items-center gap-2">
-                    <svg className="w-5 h-5 fill-white" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-                    Anichess Timeline
-                 </h3>
-              </div>
-              <div className="space-y-6">
-                 {loadingFeeds ? (
-                    [1,2,3].map(i => <div key={i} className="h-24 bg-white/5 rounded-2xl animate-pulse" />)
-                 ) : tweets.length > 0 ? (
-                    tweets.map((t, i) => (
-                      <div key={i} className="p-5 bg-white/5 rounded-2xl border border-white/5 hover:border-white/10 transition-all">
-                        <div className="flex gap-3">
-                           <div className="w-10 h-10 rounded-full bg-cyan-400 flex items-center justify-center font-black text-black">A</div>
-                           <div className="flex-1">
-                              <div className="flex items-center gap-1.5">
-                                 <span className="text-sm font-black text-white">{t.author}</span>
-                                 {t.verified && <span className="text-cyan-400">✓</span>}
-                                 <span className="text-xs text-slate-500 font-bold ml-1">{t.handle} · {t.time}</span>
-                              </div>
-                              <p className="text-xs text-slate-300 mt-2 leading-relaxed whitespace-pre-wrap">{t.content}</p>
-                           </div>
-                        </div>
-                      </div>
-                    ))
-                 ) : (
-                    <p className="text-xs text-slate-500 italic text-center py-10">Waiting for next transmission...</p>
-                 )}
-              </div>
-           </div>
-
-           <div className="col-span-12 lg:col-span-5 glass-panel p-8 rounded-[32px]">
-              <ActivityList events={marketEvents} loading={loadingFeeds} />
-           </div>
+        {/* Activity Section - Full Width now that Feed is gone */}
+        <div className="grid grid-cols-1 gap-8 pt-8">
+          <div className="glass-panel p-8 rounded-[32px]">
+            <ActivityList events={marketEvents} loading={loadingFeeds} />
+          </div>
         </div>
       </main>
     </div>

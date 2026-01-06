@@ -1,0 +1,7 @@
+{
+  "name": "Anichess Commander Terminal",
+  "description": "A specialized asset dashboard for the Anichess project, tracking $CHESS and Ethernals with AI-powered market grounding.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

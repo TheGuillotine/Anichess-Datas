@@ -168,18 +168,28 @@ export const fetchFloorPrice = async () => {
         // 2. If missing, verify Token ID and fetch specific NFT
         if (!dynamicImg) {
           // Seaport structure: protocol_data.parameters.offer[0].identifierOrCriteria is Token ID
-          const tokenId = best.protocol_data?.parameters?.offer?.[0]?.identifierOrCriteria;
+          const offer = best.protocol_data?.parameters?.offer?.[0];
+          const tokenId = offer?.identifierOrCriteria;
+          const tokenContract = offer?.token;
 
-          if (tokenId && contractAddress) {
-            console.log("[MarketService] Image missing in listing, fetching Token ID:", tokenId, "from", contractAddress);
+          // Prefer the contract from the listing itself if available
+          const finalContract = tokenContract || contractAddress;
+
+          if (tokenId && finalContract) {
+            console.log("[MarketService] Image missing in listing. Fetching specific NFT...");
+            console.log(`[MarketService] Contract: ${finalContract}, ID: ${tokenId}`);
+
             try {
-              const nftRes = await fetch(`/opensea-api/chain/ethereum/contract/${contractAddress}/nfts/${tokenId}`, {
+              const nftRes = await fetch(`/opensea-api/chain/ethereum/contract/${finalContract}/nfts/${tokenId}`, {
                 headers: { "x-api-key": OPENSEA_API_KEY }
               });
+
               if (nftRes.ok) {
                 const nftData = await nftRes.json();
                 const n = nftData.nft;
-                dynamicImg = n?.image_url || n?.image_preview_url || n?.image_thumbnail_url;
+                // Try all possible image fields
+                dynamicImg = n?.image_url || n?.image_preview_url || n?.image_thumbnail_url || n?.display_image_url;
+                console.log("[MarketService] Extracted Image URL:", dynamicImg);
               } else {
                 console.warn("[MarketService] Failed to fetch NFT desc:", nftRes.status);
               }

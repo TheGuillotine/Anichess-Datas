@@ -18,8 +18,9 @@ if (!apiKey) {
     process.exit(1);
 }
 
+// 3. Fetch Specific NFT 99
 const tokenId = "99";
-const contractAddress = "0x47392F8d55a305fD1C279093863777d13f181839"; // Anichess Ethernals Real Contract
+const contractAddress = "0x473989bf6409d21f8a7fdd7133a40f9251cc1839"; // Confirmed Address
 
 const options = {
     hostname: 'api.opensea.io',
@@ -31,7 +32,7 @@ const options = {
     }
 };
 
-console.log(`Fetching NFT #${tokenId}...`);
+console.log(`Fetching NFT #${tokenId} from ${contractAddress}...`);
 const req = https.request(options, (res) => {
     let data = '';
     res.on('data', chunk => data += chunk);
@@ -43,8 +44,6 @@ const req = https.request(options, (res) => {
             if (nft) {
                 console.log("Image URL:", nft.image_url);
                 console.log("Preview URL:", nft.image_preview_url);
-                console.log("Thumbnail URL:", nft.image_thumbnail_url);
-                console.log("Traits:", JSON.stringify(nft.traits, null, 2));
             } else {
                 console.log("No NFT data found");
                 console.log(json);

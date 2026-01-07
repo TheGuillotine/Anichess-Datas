@@ -25,7 +25,8 @@ const App: React.FC = () => {
       checkPrice: 0.000,
       check24hChange: 0,
       ethernalsFloorEth: 0.142,
-      floorNftImage: "https://i.seadn.io/s/raw/files/84041d8e6c469f64989635741f22384a.png",
+      ethernalsFloorSpecial: 1.65,
+      floorNftImage: "https://openseauserdata.com/files/84041d8e6c469f64989635741f22384a.png",
       checkHistory: []
     };
   });
@@ -227,7 +228,10 @@ const App: React.FC = () => {
             }
             if (monthsRemaining < 0) monthsRemaining = 0;
 
-            const currentFloorEth = market.ethernalsFloorEth * tier.floorScale;
+            let currentFloorEth = market.ethernalsFloorEth * tier.floorScale;
+            if (tier.name === 'Special Effect Ethernal' && market.ethernalsFloorSpecial) {
+              currentFloorEth = market.ethernalsFloorSpecial;
+            }
             const floorEthStr = currentFloorEth.toFixed(3);
             const floorUsd = (currentFloorEth * market.ethPrice).toLocaleString(undefined, { maximumFractionDigits: 0 });
 

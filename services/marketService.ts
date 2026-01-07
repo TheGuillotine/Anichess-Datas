@@ -11,10 +11,14 @@ export interface MarketData {
   checkPrice: number;
   check24hChange: number;
   ethernalsFloorEth: number;
+  ethernalsFloorSpecial: number; // New field
   floorNftImage: string;
   checkHistory: { date: string; value: number }[];
 }
 
+// ...
+
+// Market Event Interface
 export interface MarketEvent {
   id: string;
   type: 'sale' | 'listing' | 'transfer';
@@ -89,7 +93,8 @@ export const fetchEthAndCheckPrice = async () => {
 // Separate fetcher for Floor Price (Slower due to OpenSea)
 export const fetchFloorPrice = async () => {
   console.log("[MarketService] Fetching Floor Price...");
-  let ethernalsFloorEth = 0.5374; // Updated default/fallback
+  let ethernalsFloorEth = 0.5374;
+  let ethernalsFloorSpecial = 1.65; // User provided hardcoded value
   let floorNftImage = "https://openseauserdata.com/files/84041d8e6c469f64989635741f22384a.png";
 
   try {
@@ -137,7 +142,7 @@ export const fetchFloorPrice = async () => {
     console.error("Floor fetch error", e);
   }
 
-  return { ethernalsFloorEth, floorNftImage };
+  return { ethernalsFloorEth, ethernalsFloorSpecial, floorNftImage };
 };
 
 // Main function can now just combine them if needed, but we prefer using them separately

@@ -27,7 +27,11 @@ const App: React.FC = () => {
       ethernalsFloorEth: 0.142,
       ethernalsFloorSpecial: 1.65,
       floorNftImage: "https://openseauserdata.com/files/84041d8e6c469f64989635741f22384a.png",
-      checkHistory: []
+      checkHistory: [],
+      totalVolume: 0,
+      totalSales: 0,
+      totalOwners: 0,
+      averagePrice: 0
     };
   });
 
@@ -279,10 +283,23 @@ const App: React.FC = () => {
           })}
         </div>
 
-        {/* Activity Section - Full Width now that Feed is gone */}
-        <div className="grid grid-cols-1 gap-8 pt-8">
-          <div className="glass-panel p-8 rounded-[32px]">
-            <ActivityList events={marketEvents} loading={loadingFeeds} />
+        {/* Collection Stats Section (Replacing Live Feed) */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 pt-8">
+          <div className="glass-panel p-6 rounded-[24px] flex flex-col justify-center items-center border border-white/5">
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Total Volume</span>
+            <span className="text-2xl font-black text-white">{market.totalVolume ? market.totalVolume.toLocaleString(undefined, { maximumFractionDigits: 0 }) : '---'} <span className="text-xs text-slate-600">ETH</span></span>
+          </div>
+          <div className="glass-panel p-6 rounded-[24px] flex flex-col justify-center items-center border border-white/5">
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Total Sales</span>
+            <span className="text-2xl font-black text-cyan-400">{market.totalSales ? market.totalSales.toLocaleString() : '---'}</span>
+          </div>
+          <div className="glass-panel p-6 rounded-[24px] flex flex-col justify-center items-center border border-white/5">
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Owners</span>
+            <span className="text-2xl font-black text-white">{market.totalOwners ? market.totalOwners.toLocaleString() : '---'}</span>
+          </div>
+          <div className="glass-panel p-6 rounded-[24px] flex flex-col justify-center items-center border border-white/5">
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Avg Price</span>
+            <span className="text-2xl font-black text-white">{market.averagePrice ? market.averagePrice.toFixed(3) : '---'} <span className="text-xs text-slate-600">ETH</span></span>
           </div>
         </div>
       </main>

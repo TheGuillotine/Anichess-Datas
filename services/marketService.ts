@@ -11,9 +11,14 @@ export interface MarketData {
   checkPrice: number;
   check24hChange: number;
   ethernalsFloorEth: number;
-  ethernalsFloorSpecial: number; // New field
+  ethernalsFloorSpecial: number;
   floorNftImage: string;
   checkHistory: { date: string; value: number }[];
+  // New Collection Stats
+  totalVolume: number;
+  totalSales: number;
+  totalOwners: number;
+  averagePrice: number;
 }
 
 // ...
@@ -90,13 +95,19 @@ export const fetchEthAndCheckPrice = async () => {
   return { ethPrice, checkPrice, check24hChange, checkHistory };
 };
 
-// Separate fetcher for Floor Price (Slower due to OpenSea)
+// Separate fetcher for Floor Price & Collection Stats
 export const fetchFloorPrice = async () => {
-  console.log("[MarketService] Fetching Floor Price...");
+  console.log("[MarketService] Fetching Collection Stats...");
 
   let ethernalsFloorEth = 0.5374;
   let ethernalsFloorSpecial = 0;
-  let floorNftImage = "https://i.seadn.io/gae/84041d8e6c469f64989635741f22384a?w=500&auto=format"; // Standard fallback
+  let floorNftImage = "https://i.seadn.io/gae/84041d8e6c469f64989635741f22384a?w=500&auto=format";
+
+  // Default Stats
+  let totalVolume = 0;
+  let totalSales = 0;
+  let totalOwners = 0;
+  let averagePrice = 0;
 
   try {
     // 1. Fetch Collection Info (for reliable Fallback Image)
@@ -123,14 +134,17 @@ export const fetchFloorPrice = async () => {
       }
     }
 
-    // B. Process Stats (Price Source of Truth)
+    // B. Process Stats (Price & Volume Source)
     if (statsRes.ok) {
       const stats = await statsRes.json();
-      // OpenSea V2 Stats response usually has 'total', but we check both levels for safety
-      if (stats.total?.floor_price) {
-        ethernalsFloorEth = stats.total.floor_price;
-      } else if (stats.floor_price) {
-        ethernalsFloorEth = stats.floor_price;
+      const total = stats.total || stats; // Handle nested vs flat
+
+      if (total) {
+        if (total.floor_price) ethernalsFloorEth = total.floor_price;
+        if (total.volume) totalVolume = total.volume;
+        if (total.sales) totalSales = total.sales;
+        if (total.num_owners) totalOwners = total.num_owners;
+        if (total.average_price) averagePrice = total.average_price;
       }
     }
 
@@ -182,10 +196,18 @@ export const fetchFloorPrice = async () => {
     }
 
   } catch (e) {
-    console.error("Floor fetch error", e);
+    console.error("Stats fetch error", e);
   }
 
-  return { ethernalsFloorEth, ethernalsFloorSpecial, floorNftImage };
+  return {
+    ethernalsFloorEth,
+    ethernalsFloorSpecial,
+    floorNftImage,
+    totalVolume,
+    totalSales,
+    totalOwners,
+    averagePrice
+  };
 };
 
 // Main function can now just combine them if needed, but we prefer using them separately

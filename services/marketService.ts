@@ -96,44 +96,52 @@ export const fetchFloorPrice = async () => {
 
   let ethernalsFloorEth = 0.5374;
   let ethernalsFloorSpecial = 0;
-  let floorNftImage = "https://openseauserdata.com/files/84041d8e6c469f64989635741f22384a.png";
+  let floorNftImage = "https://i.seadn.io/gae/84041d8e6c469f64989635741f22384a?w=500&auto=format"; // Standard fallback
 
   try {
-    // 1. Fetch Official Collection Stats (Source of Truth for "Floor Price")
-    const statsResponse = await fetch(
-      "/opensea-api/collections/anichess-ethernals/stats",
-      { headers: { "x-api-key": OPENSEA_API_KEY, "accept": "application/json" } }
-    );
+    // 1. Fetch Collection Info (for reliable Fallback Image)
+    // 2. Fetch Stats (for Price)
+    // 3. Fetch Listings (for dynamic Item Image)
 
-    if (statsResponse.ok) {
-      const stats = await statsResponse.json();
-      if (stats.total?.floor_price) {
-        ethernalsFloorEth = stats.total.floor_price;
-        console.log("[MarketService] Official Stats Floor:", ethernalsFloorEth);
+    const [collectionRes, statsRes, listingsRes] = await Promise.all([
+      fetch("/opensea-api/collections/anichess-ethernals", { headers: { "x-api-key": OPENSEA_API_KEY } }),
+      fetch("/opensea-api/collections/anichess-ethernals/stats", { headers: { "x-api-key": OPENSEA_API_KEY } }),
+      fetch("/opensea-api/listings/collection/anichess-ethernals/all?limit=1&sort_by=price", { headers: { "x-api-key": OPENSEA_API_KEY } })
+    ]);
+
+    // A. Process Collection Info (Fallback Image)
+    if (collectionRes.ok) {
+      const colData = await collectionRes.json();
+      if (colData.image_url) {
+        floorNftImage = colData.image_url;
       }
     }
 
-    // 2. Fetch Listings ONLY for Image (and fallback price if stats fail)
-    const listingsResponse = await fetch(
-      "/opensea-api/listings/collection/anichess-ethernals/all?limit=1&sort_by=price",
-      { headers: { "x-api-key": OPENSEA_API_KEY, "accept": "application/json" } }
-    );
+    // B. Process Stats (Price Source of Truth)
+    if (statsRes.ok) {
+      const stats = await statsRes.json();
+      if (stats.total?.floor_price) {
+        ethernalsFloorEth = stats.total.floor_price;
+      }
+    }
 
-    if (listingsResponse.ok) {
-      const data = await listingsResponse.json();
+    // C. Process Listings (Preferred Dynamic Image)
+    if (listingsRes.ok) {
+      const data = await listingsRes.json();
       if (data.listings && data.listings.length > 0) {
         const best = data.listings[0];
-
-        // Extract Image
         const meta = best.item?.metadata;
         const nft = best.item?.nft;
-        const img = meta?.image_preview_url ||
+
+        const dynamicImg = meta?.image_preview_url ||
           meta?.image_thumbnail_url ||
           meta?.image_url ||
           nft?.image_preview_url ||
           nft?.image_thumbnail_url ||
           nft?.image_url;
-        if (img) floorNftImage = img;
+        if (dynamicImg) {
+          floorNftImage = dynamicImg;
+        }
       }
     }
 

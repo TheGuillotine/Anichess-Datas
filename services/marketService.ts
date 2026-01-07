@@ -126,8 +126,11 @@ export const fetchFloorPrice = async () => {
     // B. Process Stats (Price Source of Truth)
     if (statsRes.ok) {
       const stats = await statsRes.json();
+      // OpenSea V2 Stats response usually has 'total', but we check both levels for safety
       if (stats.total?.floor_price) {
         ethernalsFloorEth = stats.total.floor_price;
+      } else if (stats.floor_price) {
+        ethernalsFloorEth = stats.floor_price;
       }
     }
 

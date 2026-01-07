@@ -67,7 +67,7 @@ const App: React.FC = () => {
     refreshMarket();
     refreshActivity();
     const mktInterval = setInterval(refreshMarket, 60000); // 1 min
-    const feedInterval = setInterval(refreshActivity, 300000); // 5 mins
+    const feedInterval = setInterval(refreshActivity, 10000); // 10s for live feel
     return () => {
       clearInterval(mktInterval);
       clearInterval(feedInterval);

@@ -109,11 +109,17 @@ export const fetchFloorPrice = async () => {
       fetch("/opensea-api/listings/collection/anichess-ethernals/all?limit=1&sort_by=price", { headers: { "x-api-key": OPENSEA_API_KEY } })
     ]);
 
-    // A. Process Collection Info (Fallback Image)
+    // A. Process Collection Info (Fallback Image & Contract Address)
+    let contractAddress = "0x47392F8d55a305fD1C279093863777d13f181839"; // Default valid address
     if (collectionRes.ok) {
       const colData = await collectionRes.json();
       if (colData.image_url) {
         floorNftImage = colData.image_url;
+      }
+      // Extract dynamically to be safe
+      if (colData.primary_asset_contracts && colData.primary_asset_contracts.length > 0) {
+        contractAddress = colData.primary_asset_contracts[0].address;
+        console.log("[MarketService] Found Contract Address:", contractAddress);
       }
     }
 
@@ -147,16 +153,18 @@ export const fetchFloorPrice = async () => {
           // Seaport structure: protocol_data.parameters.offer[0].identifierOrCriteria is Token ID
           const tokenId = best.protocol_data?.parameters?.offer?.[0]?.identifierOrCriteria;
 
-          if (tokenId) {
-            console.log("[MarketService] Image missing in listing, fetching Token ID:", tokenId);
+          if (tokenId && contractAddress) {
+            console.log("[MarketService] Image missing in listing, fetching Token ID:", tokenId, "from", contractAddress);
             try {
-              const nftRes = await fetch(`/opensea-api/chain/ethereum/contract/0x84041d8e6c469f64989635741f22384a/nfts/${tokenId}`, {
+              const nftRes = await fetch(`/opensea-api/chain/ethereum/contract/${contractAddress}/nfts/${tokenId}`, {
                 headers: { "x-api-key": OPENSEA_API_KEY }
               });
               if (nftRes.ok) {
                 const nftData = await nftRes.json();
                 const n = nftData.nft;
                 dynamicImg = n?.image_url || n?.image_preview_url || n?.image_thumbnail_url;
+              } else {
+                console.warn("[MarketService] Failed to fetch NFT desc:", nftRes.status);
               }
             } catch (err) {
               console.error("Failed to fetch specific NFT image", err);

@@ -282,6 +282,18 @@ const App: React.FC = () => {
           </div>
         </div>
       </main>
+
+      {/* Debug / Status Footer */}
+      <footer className="fixed bottom-0 w-full px-8 py-2 bg-[#0d0f14]/90 backdrop-blur text-[10px] uppercase font-bold text-slate-600 flex justify-between items-center z-50">
+        <div>
+          Connection Status: <span className={import.meta.env.VITE_OPENSEA_API_KEY ? "text-green-400" : "text-red-500"}>
+            {import.meta.env.VITE_OPENSEA_API_KEY ? "API KEY LOADED" : "MISSING API KEY (VITE_OPENSEA_API_KEY)"}
+          </span>
+        </div>
+        <div>
+          App Version: 1.0.4
+        </div>
+      </footer>
     </div>
   );
 };

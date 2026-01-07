@@ -24,131 +24,110 @@ export interface MarketEvent {
   url: string;
 }
 
-export const fetchMarketData = async (): Promise<MarketData> => {
-  console.log("[MarketService] fetchMarketData via DexScreener called");
+// Individual fetcher for ETH and CHECK (Fast)
+export const fetchEthAndCheckPrice = async () => {
+  console.log("[MarketService] Fetching ETH & CHECK data...");
 
-  // Defaults
   let ethPrice = 2400;
   let checkPrice = 0.000;
   let check24hChange = 0;
-  let floorPrice = 0.142;
-  let floorImage = "https://i.seadn.io/s/raw/files/84041d8e6c469f64989635741f22384a.png";
 
-  const fetchEth = async () => {
+  // Parallel fetch for ETH and CHECK
+  const [ethRes, checkRes] = await Promise.all([
+    fetch("https://api.dexscreener.com/latest/dex/pairs/ethereum/0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640").catch(e => null),
+    fetch(`https://api.dexscreener.com/latest/dex/tokens/${CHECK_ADDRESS}`).catch(e => null)
+  ]);
+
+  // Process ETH
+  if (ethRes && ethRes.ok) {
     try {
-      const wethResponse = await fetch("https://api.dexscreener.com/latest/dex/pairs/ethereum/0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640");
-      if (wethResponse.ok) {
-        const data = await wethResponse.json();
-        const pair = data.pair || data.pairs?.[0];
-        if (pair) {
-          ethPrice = parseFloat(pair.priceUsd);
-          console.log("[MarketService] ETH Price (DexScreener Pair):", ethPrice);
+      const data = await ethRes.json();
+      const pair = data.pair || data.pairs?.[0];
+      if (pair) ethPrice = parseFloat(pair.priceUsd);
+    } catch (e) {
+      console.warn("ETH parse error", e);
+    }
+  }
+
+  // Process CHECK
+  if (checkRes && checkRes.ok) {
+    try {
+      const data = await checkRes.json();
+      const bestPair = data.pairs?.find((p: any) => p.baseToken.address.toLowerCase() === CHECK_ADDRESS.toLowerCase());
+      if (bestPair) {
+        checkPrice = parseFloat(bestPair.priceUsd);
+        check24hChange = bestPair.priceChange.h24;
+      } else if (data.pairs?.[0]) {
+        // Fallback logic
+        if (data.pairs[0].baseToken.symbol === 'CHECK' || data.pairs[0].baseToken.symbol === 'Check') {
+          checkPrice = parseFloat(data.pairs[0].priceUsd);
+          check24hChange = data.pairs[0].priceChange.h24;
         }
-      } else {
-        console.warn("[MarketService] ETH Price fetch failed:", wethResponse.status);
       }
     } catch (e) {
-      console.warn("[MarketService] ETH Price fetch error:", e);
+      console.warn("CHECK parse error", e);
     }
-  };
+  }
 
-  const fetchCheck = async () => {
-    try {
-      const dexUrl = `https://api.dexscreener.com/latest/dex/tokens/${CHECK_ADDRESS}`;
-      console.log("[MarketService] Fetching DexScreener (CHECK):", dexUrl);
-      const checkResponse = await fetch(dexUrl);
-
-      if (checkResponse.ok) {
-        const data = await checkResponse.json();
-        const bestPair = data.pairs?.find((p: any) => p.baseToken.address.toLowerCase() === CHECK_ADDRESS.toLowerCase());
-
-        if (bestPair) {
-          checkPrice = parseFloat(bestPair.priceUsd);
-          check24hChange = bestPair.priceChange.h24;
-          console.log("[MarketService] Parsed CHECK Price:", checkPrice);
-        } else if (data.pairs?.[0]) {
-          console.warn("[MarketService] CHECK not found as Base Token in first pair. Base:", data.pairs[0].baseToken.symbol);
-          if (data.pairs[0].baseToken.symbol === 'CHECK' || data.pairs[0].baseToken.symbol === 'Check') {
-            checkPrice = parseFloat(data.pairs[0].priceUsd);
-            check24hChange = data.pairs[0].priceChange.h24;
-          }
-        } else {
-          console.warn("[MarketService] No pairs found for CHECK");
-        }
-      } else {
-        console.warn("[MarketService] CHECK fetch failed:", checkResponse.status);
-      }
-    } catch (e) {
-      console.error("[MarketService] CHECK fetch error:", e);
-    }
-  };
-
-  const fetchFloor = async () => {
-    try {
-      const osListingsResponse = await fetch(
-        "https://api.opensea.io/api/v2/listings/collection/anichess-ethernals/all?limit=1",
-        {
-          headers: {
-            "x-api-key": OPENSEA_API_KEY,
-            "accept": "application/json"
-          }
-        }
-      );
-
-      if (osListingsResponse.ok) {
-        const listingsData = await osListingsResponse.json();
-        if (listingsData.listings && listingsData.listings.length > 0) {
-          const bestListing = listingsData.listings[0];
-          const priceValue = bestListing.price?.current?.value;
-          const decimals = bestListing.price?.current?.decimals || 18;
-
-          if (priceValue) {
-            floorPrice = parseFloat(priceValue) / Math.pow(10, decimals);
-          }
-          floorImage = bestListing.item?.metadata?.image_url || bestListing.item?.nft?.image_url || floorImage;
-        }
-      } else {
-        const osStatsResponse = await fetch(
-          "https://api.opensea.io/api/v2/collections/anichess-ethernals/stats",
-          { headers: { "x-api-key": OPENSEA_API_KEY, "accept": "application/json" } }
-        );
-        if (osStatsResponse.ok) {
-          const statsData = await osStatsResponse.json();
-          floorPrice = statsData.total?.floor_price || floorPrice;
-        }
-      }
-    } catch (error) {
-      console.error("OpenSea Data Fetch Error:", error);
-    }
-  };
-
-  await Promise.all([fetchEth(), fetchCheck(), fetchFloor()]);
-
-  // Mock History based on trend
+  // Generate History
   const trend = check24hChange >= 0 ? 1 : -1;
   const volatility = 0.05;
-
   const checkHistory = Array(7).fill(0).map((_, i) => {
     const daysAgo = 6 - i;
     const randomVar = 1 + (Math.random() * volatility * 2 - volatility);
     const trendFactor = 1 - (trend * 0.02 * daysAgo);
-
     return {
       date: new Date(Date.now() - daysAgo * 86400000).toISOString(),
       value: checkPrice * trendFactor * randomVar
     };
   });
 
-  const finalResult = {
-    ethPrice,
-    checkPrice,
-    check24hChange,
-    ethernalsFloorEth: floorPrice,
-    floorNftImage: floorImage,
-    checkHistory
-  };
-  console.log("[MarketService] returning:", finalResult);
-  return finalResult;
+  return { ethPrice, checkPrice, check24hChange, checkHistory };
+};
+
+// Separate fetcher for Floor Price (Slower due to OpenSea)
+export const fetchFloorPrice = async () => {
+  console.log("[MarketService] Fetching Floor Price...");
+  let ethernalsFloorEth = 0.142;
+  let floorNftImage = "https://i.seadn.io/s/raw/files/84041d8e6c469f64989635741f22384a.png";
+
+  try {
+    const osListingsResponse = await fetch(
+      "https://api.opensea.io/api/v2/listings/collection/anichess-ethernals/all?limit=1",
+      { headers: { "x-api-key": OPENSEA_API_KEY, "accept": "application/json" } }
+    );
+
+    if (osListingsResponse.ok) {
+      const listingsData = await osListingsResponse.json();
+      if (listingsData.listings?.[0]) {
+        const best = listingsData.listings[0];
+        const val = best.price?.current?.value;
+        const dec = best.price?.current?.decimals || 18;
+        if (val) ethernalsFloorEth = parseFloat(val) / Math.pow(10, dec);
+        floorNftImage = best.item?.metadata?.image_url || best.item?.nft?.image_url || floorNftImage;
+      }
+    } else {
+      // Fallback
+      const osStatsResponse = await fetch(
+        "https://api.opensea.io/api/v2/collections/anichess-ethernals/stats",
+        { headers: { "x-api-key": OPENSEA_API_KEY, "accept": "application/json" } }
+      );
+      if (osStatsResponse.ok) {
+        const stats = await osStatsResponse.json();
+        ethernalsFloorEth = stats.total?.floor_price || ethernalsFloorEth;
+      }
+    }
+  } catch (e) {
+    console.error("Floor fetch error", e);
+  }
+
+  return { ethernalsFloorEth, floorNftImage };
+};
+
+// Main function can now just combine them if needed, but we prefer using them separately
+export const fetchMarketData = async (): Promise<MarketData> => {
+  const [global, floor] = await Promise.all([fetchEthAndCheckPrice(), fetchFloorPrice()]);
+  return { ...global, ...floor };
 };
 
 export const fetchMarketActivity = async (): Promise<MarketEvent[]> => {

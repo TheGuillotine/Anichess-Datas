@@ -2,26 +2,58 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ActivityList } from './components/ActivityList';
 import { MarketChart } from './components/MarketChart';
-import { fetchMarketData, fetchMarketActivity, MarketData, MarketEvent } from './services/marketService';
+import { fetchMarketData, fetchMarketActivity, fetchEthAndCheckPrice, fetchFloorPrice, MarketData, MarketEvent } from './services/marketService';
+
+const STORAGE_KEY = 'anichess_market_data';
 
 const App: React.FC = () => {
   const [marketEvents, setMarketEvents] = useState<MarketEvent[]>([]);
   const [loadingFeeds, setLoadingFeeds] = useState(true);
-  const [isMarketLoading, setIsMarketLoading] = useState(true);
-  const [market, setMarket] = useState<MarketData>({
-    ethPrice: 2400,
-    checkPrice: 0.000,
-    check24hChange: 0,
-    ethernalsFloorEth: 0.142,
-    floorNftImage: "https://i.seadn.io/s/raw/files/84041d8e6c469f64989635741f22384a.png",
-    checkHistory: []
+
+  // Initialize state from LocalStorage if available
+  const [market, setMarket] = useState<MarketData>(() => {
+    try {
+      const cached = localStorage.getItem(STORAGE_KEY);
+      if (cached) {
+        return JSON.parse(cached);
+      }
+    } catch (e) {
+      console.warn("Failed to load cache", e);
+    }
+    return {
+      ethPrice: 2400,
+      checkPrice: 0.000,
+      check24hChange: 0,
+      ethernalsFloorEth: 0.142,
+      floorNftImage: "https://i.seadn.io/s/raw/files/84041d8e6c469f64989635741f22384a.png",
+      checkHistory: []
+    };
   });
 
-  const refreshMarket = useCallback(async () => {
-    const mkt = await fetchMarketData();
-    console.log("[App] Received market data:", mkt);
-    setMarket(mkt);
-    setIsMarketLoading(false);
+  const [isMarketLoading, setIsMarketLoading] = useState(() => {
+    return !localStorage.getItem(STORAGE_KEY); // Loading only if no cache
+  });
+
+  const refreshMarket = useCallback(() => {
+    // 1. Fetch ETH & CHECK (Fastest)
+    fetchEthAndCheckPrice().then(data => {
+      setMarket(prev => {
+        const newState = { ...prev, ...data };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(newState));
+        return newState;
+      });
+      setIsMarketLoading(false);
+    });
+
+    // 2. Fetch Floor (Slower)
+    fetchFloorPrice().then(data => {
+      setMarket(prev => {
+        const newState = { ...prev, ...data };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(newState));
+        return newState;
+      });
+      setIsMarketLoading(false);
+    });
   }, []);
 
   const refreshActivity = useCallback(async () => {
@@ -34,7 +66,7 @@ const App: React.FC = () => {
   useEffect(() => {
     refreshMarket();
     refreshActivity();
-    const mktInterval = setInterval(refreshMarket, 60000);
+    const mktInterval = setInterval(refreshMarket, 60000); // 1 min
     const feedInterval = setInterval(refreshActivity, 300000); // 5 mins
     return () => {
       clearInterval(mktInterval);
@@ -125,7 +157,7 @@ const App: React.FC = () => {
                 <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Market Value</p>
                 <div className="flex items-baseline gap-2">
                   <span className="text-5xl font-black text-white tabular-nums tracking-tighter flex items-center">
-                    {isMarketLoading ? renderSkeleton("h-12 w-32") : `$${market.checkPrice.toFixed(3)}`}
+                    {isMarketLoading ? renderSkeleton("h-12 w-32") : `$${market.checkPrice.toFixed(4)}`}
                   </span>
                 </div>
                 {/* Evolution text for 24 hours */}

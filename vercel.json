@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/opensea-api/:match*",
+      "destination": "https://api.opensea.io/api/v2/:match*"
+    }
+  ]
+}

@@ -8,7 +8,14 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 3000,
       host: '0.0.0.0',
-      proxy: {}
+      proxy: {
+        '/opensea-api': {
+          target: 'https://api.opensea.io/api/v2',
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/opensea-api/, ''),
+          secure: false,
+        }
+      }
     },
     plugins: [react()],
     define: {

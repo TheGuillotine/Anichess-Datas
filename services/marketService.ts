@@ -95,7 +95,7 @@ export const fetchFloorPrice = async () => {
   try {
     // 1. Fetch Collection Stats (Primary source for "Official" Floor Price)
     const osStatsResponse = await fetch(
-      "https://api.opensea.io/api/v2/collections/anichess-ethernals/stats",
+      "/opensea-api/collections/anichess-ethernals/stats",
       { headers: { "x-api-key": OPENSEA_API_KEY, "accept": "application/json" } }
     );
 
@@ -110,7 +110,7 @@ export const fetchFloorPrice = async () => {
 
     // 2. Fetch Listings (Mainly for the Image, or fallback price)
     const osListingsResponse = await fetch(
-      "https://api.opensea.io/api/v2/listings/collection/anichess-ethernals/all?limit=1&sort_by=price",
+      "/opensea-api/listings/collection/anichess-ethernals/all?limit=1&sort_by=price",
       { headers: { "x-api-key": OPENSEA_API_KEY, "accept": "application/json" } }
     );
 
@@ -149,7 +149,7 @@ export const fetchMarketData = async (): Promise<MarketData> => {
 export const fetchMarketActivity = async (): Promise<MarketEvent[]> => {
   try {
     const response = await fetch(
-      "https://api.opensea.io/api/v2/events/collection/anichess-ethernals?event_type=sale&event_type=listing&limit=10",
+      "/opensea-api/events/collection/anichess-ethernals?event_type=sale&event_type=listing&limit=10",
       {
         headers: {
           "x-api-key": OPENSEA_API_KEY,

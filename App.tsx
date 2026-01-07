@@ -7,6 +7,7 @@ import { fetchMarketData, fetchMarketActivity, MarketData, MarketEvent } from '.
 const App: React.FC = () => {
   const [marketEvents, setMarketEvents] = useState<MarketEvent[]>([]);
   const [loadingFeeds, setLoadingFeeds] = useState(true);
+  const [isMarketLoading, setIsMarketLoading] = useState(true);
   const [market, setMarket] = useState<MarketData>({
     ethPrice: 2400,
     checkPrice: 0.000,
@@ -20,6 +21,7 @@ const App: React.FC = () => {
     const mkt = await fetchMarketData();
     console.log("[App] Received market data:", mkt);
     setMarket(mkt);
+    setIsMarketLoading(false);
   }, []);
 
   const refreshActivity = useCallback(async () => {
@@ -45,6 +47,10 @@ const App: React.FC = () => {
     { name: 'Special Effect Ethernal', floorScale: 1.5, airdrop: 18000 },
     { name: 'Void Ethernal', floorScale: 2.2, airdrop: 30000 },
   ];
+
+  const renderSkeleton = (className: string) => (
+    <div className={`animate-pulse bg-white/10 rounded ${className}`} />
+  );
 
   return (
     <div className="min-h-screen pb-20">
@@ -79,14 +85,17 @@ const App: React.FC = () => {
               <h2 className="text-3xl font-black text-white tracking-tighter uppercase mb-8">Ethernal Floor Price</h2>
 
               <div className="flex items-baseline gap-4 mb-2">
-                <span className="text-6xl font-black text-white tabular-nums tracking-tighter">
-                  {market.ethernalsFloorEth.toFixed(3)} <span className="text-2xl font-black text-slate-500">ETH</span>
+                <span className="text-6xl font-black text-white tabular-nums tracking-tighter flex items-center gap-4">
+                  {isMarketLoading ? renderSkeleton("h-16 w-48") : market.ethernalsFloorEth.toFixed(3)}
+                  <span className="text-2xl font-black text-slate-500">ETH</span>
                 </span>
               </div>
               <div className="bg-white/5 px-4 py-2 rounded-xl inline-flex items-center gap-2 border border-white/5 w-fit">
-                <span className="text-xl font-black text-cyan-400">
-                  ${(market.ethernalsFloorEth * market.ethPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
+                {isMarketLoading ? renderSkeleton("h-6 w-24") : (
+                  <span className="text-xl font-black text-cyan-400">
+                    ${(market.ethernalsFloorEth * market.ethPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                )}
                 <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">USD</span>
               </div>
             </div>
@@ -115,25 +124,27 @@ const App: React.FC = () => {
               <div className="space-y-1">
                 <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Market Value</p>
                 <div className="flex items-baseline gap-2">
-                  <span className="text-5xl font-black text-white tabular-nums tracking-tighter">
-                    ${market.checkPrice.toFixed(3)}
+                  <span className="text-5xl font-black text-white tabular-nums tracking-tighter flex items-center">
+                    {isMarketLoading ? renderSkeleton("h-12 w-32") : `$${market.checkPrice.toFixed(3)}`}
                   </span>
                 </div>
                 {/* Evolution text for 24 hours */}
-                <p className={`text-[11px] font-bold uppercase mt-1 flex items-center gap-1.5 ${market.check24hChange >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                  {market.check24hChange >= 0 ? '↑' : '↓'} {Math.abs(market.check24hChange).toFixed(2)}%
-                  <span className="text-slate-500 font-medium ml-1">24H EVOL</span>
-                </p>
+                {isMarketLoading ? renderSkeleton("h-4 w-20 mt-2") : (
+                  <p className={`text-[11px] font-bold uppercase mt-1 flex items-center gap-1.5 ${market.check24hChange >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                    {market.check24hChange >= 0 ? '↑' : '↓'} {Math.abs(market.check24hChange).toFixed(2)}%
+                    <span className="text-slate-500 font-medium ml-1">24H EVOL</span>
+                  </p>
+                )}
               </div>
 
               {/* Sparkline chart with fixed height for reliable rendering */}
               <div className="flex-1 h-16 max-w-[140px] opacity-90">
-                {market.checkHistory && market.checkHistory.length > 0 ? (
-                  <MarketChart data={market.checkHistory} sparkline={true} />
-                ) : (
+                {isMarketLoading || !market.checkHistory || market.checkHistory.length === 0 ? (
                   <div className="w-full h-full flex items-center justify-center">
                     <div className="w-full h-[2px] bg-cyan-400/20 animate-pulse" />
                   </div>
+                ) : (
+                  <MarketChart data={market.checkHistory} sparkline={true} />
                 )}
               </div>
             </div>
@@ -175,26 +186,26 @@ const App: React.FC = () => {
                   <div>
                     <p className="text-[10px] font-bold text-slate-500 uppercase mb-1">Floor Price</p>
                     <div className="flex items-baseline gap-2">
-                      <span className="text-2xl font-black text-white">{floorEthStr} ETH</span>
-                      <span className="text-xs font-bold text-slate-500 uppercase tracking-tight">≈ ${floorUsd}</span>
+                      {isMarketLoading ? renderSkeleton("h-8 w-24") : <span className="text-2xl font-black text-white">{floorEthStr} ETH</span>}
+                      {isMarketLoading ? null : <span className="text-xs font-bold text-slate-500 uppercase tracking-tight">≈ ${floorUsd}</span>}
                     </div>
                   </div>
                   <div className="pt-6 border-t border-white/5">
                     <p className="text-[10px] font-bold text-slate-500 uppercase mb-1">Monthly Airdrop</p>
                     <div className="flex items-baseline gap-2">
                       <span className="text-2xl font-black text-cyan-400">{tier.airdrop.toLocaleString()} $CHECK</span>
-                      <span className="text-xs font-bold text-slate-500 uppercase tracking-tight">≈ ${airdropUsd}</span>
+                      {isMarketLoading ? renderSkeleton("h-4 w-16") : <span className="text-xs font-bold text-slate-500 uppercase tracking-tight">≈ ${airdropUsd}</span>}
                     </div>
                   </div>
                   <div className="pt-4 border-t border-white/5">
                     <div className="flex justify-between items-center">
                       <div>
                         <p className="text-[10px] font-bold text-slate-500 uppercase mb-1">Yield (APR)</p>
-                        <span className="text-2xl font-black text-green-400">{apr.toFixed(2)}%</span>
+                        {isMarketLoading ? renderSkeleton("h-8 w-20") : <span className="text-2xl font-black text-green-400">{apr.toFixed(2)}%</span>}
                       </div>
                       <div className="text-right">
                         <p className="text-[10px] font-bold text-slate-500 uppercase mb-1">Yearly Ret.</p>
-                        <span className="text-xs font-black text-white">${annualAirdropValueUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                        {isMarketLoading ? renderSkeleton("h-4 w-16 ml-auto") : <span className="text-xs font-black text-white">${annualAirdropValueUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>}
                       </div>
                     </div>
                   </div>

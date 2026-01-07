@@ -153,7 +153,7 @@ const App: React.FC = () => {
           {/* Block 2: $CHECK Info (Small) */}
           <div className="col-span-12 lg:col-span-4 glass-panel rounded-[32px] overflow-hidden p-8 flex flex-col justify-center border-t-4 border-t-yellow-500/30 bg-gradient-to-br from-[#1c1e24] to-[#0d0f14]">
             <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 bg-cyan-400 rounded-full flex items-center justify-center font-black text-black text-xs shadow-[0_0_15px_rgba(34,211,238,0.3)]">CK</div>
+              <img src="/check_logo.png" alt="CK" className="w-10 h-10 rounded-full shadow-[0_0_15px_rgba(34,211,238,0.3)]" />
               <h3 className="text-xl font-black text-white uppercase tracking-tighter italic">$CHECK Token</h3>
             </div>
 

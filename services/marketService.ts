@@ -94,54 +94,72 @@ export const fetchEthAndCheckPrice = async () => {
 export const fetchFloorPrice = async () => {
   console.log("[MarketService] Fetching Floor Price...");
   let ethernalsFloorEth = 0.5374;
-  let ethernalsFloorSpecial = 1.65; // User provided hardcoded value
+  let ethernalsFloorSpecial = 0; // Default to 0, will be fetched
   let floorNftImage = "https://openseauserdata.com/files/84041d8e6c469f64989635741f22384a.png";
 
   try {
-    // 1. Fetch Collection Stats (Primary source for "Official" Floor Price)
-    const osStatsResponse = await fetch(
-      "/opensea-api/collections/anichess-ethernals/stats",
-      { headers: { "x-api-key": OPENSEA_API_KEY, "accept": "application/json" } }
-    );
+    // 1. Fetch Key Stats & Special Listings in Parallel
+    // We try to use the traits filter for Special Effect. 
+    // JSON: [{"traitType":"Background","values":["Special Effect"]}]
+    const traitParams = encodeURIComponent('[{"traitType":"Background","values":["Special Effect"]}]');
 
-    let priceFound = false;
-    if (osStatsResponse.ok) {
-      const stats = await osStatsResponse.json();
+    const [statsRes, listingsRes, specialRes] = await Promise.all([
+      // A. Collection Stats (Base Floor)
+      fetch("/opensea-api/collections/anichess-ethernals/stats", {
+        headers: { "x-api-key": OPENSEA_API_KEY, "accept": "application/json" }
+      }),
+      // B. General Listings (Image + Fallback)
+      fetch("/opensea-api/listings/collection/anichess-ethernals/all?limit=1&sort_by=price", {
+        headers: { "x-api-key": OPENSEA_API_KEY, "accept": "application/json" }
+      }),
+      // C. Special Effect Listings (Trait Floor)
+      fetch(`/opensea-api/listings/collection/anichess-ethernals/all?limit=1&sort_by=price&traits=${traitParams}`, {
+        headers: { "x-api-key": OPENSEA_API_KEY, "accept": "application/json" }
+      }).catch(e => null)
+    ]);
+
+    // Process Stats (Base Floor)
+    if (statsRes.ok) {
+      const stats = await statsRes.json();
       if (stats.total?.floor_price) {
         ethernalsFloorEth = stats.total.floor_price;
-        priceFound = true;
       }
     }
 
-    // 2. Fetch Listings (Mainly for the Image, or fallback price)
-    const osListingsResponse = await fetch(
-      "/opensea-api/listings/collection/anichess-ethernals/all?limit=1&sort_by=price",
-      { headers: { "x-api-key": OPENSEA_API_KEY, "accept": "application/json" } }
-    );
-
-    if (osListingsResponse.ok) {
-      const listingsData = await osListingsResponse.json();
+    // Process General Listings (Image)
+    if (listingsRes.ok) {
+      const listingsData = await listingsRes.json();
       if (listingsData.listings?.[0]) {
         const best = listingsData.listings[0];
-
-        // If stats failed or returned 0, try to use listing price
-        if (!priceFound) {
-          const val = best.price?.current?.value;
-          const dec = best.price?.current?.decimals || 18;
-          if (val) ethernalsFloorEth = parseFloat(val) / Math.pow(10, dec);
-        }
-
-        // Always try to get the image from the listing
+        // Image extraction
         const meta = best.item?.metadata;
         const nft = best.item?.nft;
         floorNftImage = meta?.image_preview_url || meta?.image_thumbnail_url || meta?.image_url ||
           nft?.image_preview_url || nft?.image_thumbnail_url || nft?.image_url || floorNftImage;
       }
     }
+
+    // Process Special Effect Floor
+    if (specialRes && specialRes.ok) {
+      const specialData = await specialRes.json();
+      if (specialData.listings?.[0]) {
+        const bestSpecial = specialData.listings[0];
+        const val = bestSpecial.price?.current?.value;
+        const dec = bestSpecial.price?.current?.decimals || 18;
+        if (val) {
+          ethernalsFloorSpecial = parseFloat(val) / Math.pow(10, dec);
+          console.log("[MarketService] Found Special Effect Floor:", ethernalsFloorSpecial);
+        }
+      }
+    } else {
+      console.warn("[MarketService] Failed to fetch Special Effect trait floor via API.");
+    }
+
   } catch (e) {
     console.error("Floor fetch error", e);
   }
 
+  // Fallback: If special floor still 0, strictly fallback to scalar in App.tsx (we pass 0)
   return { ethernalsFloorEth, ethernalsFloorSpecial, floorNftImage };
 };
 

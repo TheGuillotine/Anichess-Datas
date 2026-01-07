@@ -25,7 +25,8 @@ const App: React.FC = () => {
       checkPrice: 0.000,
       check24hChange: 0,
       ethernalsFloorEth: 0.142,
-      ethernalsFloorSpecial: 1.65,
+      floorVoidEth: 1.65,
+      floorSpecialEth: 0.8,
       floorNftImage: "https://openseauserdata.com/files/84041d8e6c469f64989635741f22384a.png",
       floorNftUrl: "https://opensea.io/collection/anichess-ethernals",
       checkHistory: [],
@@ -92,6 +93,7 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen pb-20">
+      {/* ... header ... */}
       <header className="fixed top-0 w-full z-50 px-8 py-4 flex items-center justify-between bg-[#0d0f14]/90 backdrop-blur-xl border-b border-white/5">
         <div className="flex items-center gap-12">
           <div className="flex items-center gap-3">
@@ -246,8 +248,11 @@ const App: React.FC = () => {
             if (monthsRemaining < 0) monthsRemaining = 0;
 
             let currentFloorEth = market.ethernalsFloorEth * tier.floorScale;
-            if (tier.name === 'Special Effect Ethernal' && market.ethernalsFloorSpecial) {
-              currentFloorEth = market.ethernalsFloorSpecial;
+            // Use specific fetched floors if available, else fallback to scale (or 0 if not fetched yet, but better to fallback to scale)
+            if (tier.name === 'Special Effect Ethernal' && market.floorSpecialEth > 0) {
+              currentFloorEth = market.floorSpecialEth;
+            } else if (tier.name === 'Void Ethernal' && market.floorVoidEth > 0) {
+              currentFloorEth = market.floorVoidEth;
             }
             const floorEthStr = currentFloorEth.toFixed(3);
             const floorUsd = (currentFloorEth * market.ethPrice).toLocaleString(undefined, { maximumFractionDigits: 0 });

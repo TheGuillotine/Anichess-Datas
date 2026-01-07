@@ -203,13 +203,41 @@ const App: React.FC = () => {
         {/* Tier Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {TIERS.map((tier) => {
+            // Calculate Months Remaining
+            const now = new Date();
+            const currentYear = now.getFullYear();
+            const currentMonth = now.getMonth(); // 0 = Jan
+            const currentDay = now.getDate();
+
+            // Logic: End in August 2026. 
+            // If we are in Jan 2026 (month 0):
+            // Before 20th: 8 months (Jan, Feb, Mar, Apr, May, Jun, Jul, Aug)
+            // After 20th: 7 months
+
+            let monthsRemaining = 0;
+            if (currentYear === 2026) {
+              // August (7) is the last month. 
+              // If strictly calculating 8 months from Jan 7th: Jan..Aug is 8 months.
+              monthsRemaining = 7 - currentMonth;
+              if (currentDay < 20) {
+                monthsRemaining += 1;
+              }
+            } else if (currentYear < 2026) {
+              monthsRemaining = 8; // Fallback helper or logic if year is previous? Assuming we are in 2026 as per user context.
+            }
+            if (monthsRemaining < 0) monthsRemaining = 0;
+
             const currentFloorEth = market.ethernalsFloorEth * tier.floorScale;
             const floorEthStr = currentFloorEth.toFixed(3);
-            const floorUsd = (currentFloorEth * market.ethPrice).toLocaleString();
-            const airdropUsd = (tier.airdrop * market.checkPrice).toLocaleString();
-            const annualAirdropValueUsd = tier.airdrop * 12 * market.checkPrice;
+            const floorUsd = (currentFloorEth * market.ethPrice).toLocaleString(undefined, { maximumFractionDigits: 0 });
+
+            const airdropUsd = (tier.airdrop * market.checkPrice).toLocaleString(undefined, { maximumFractionDigits: 0 });
+
+            const totalRemainingTokens = tier.airdrop * monthsRemaining;
+            const totalRemainingValueUsd = totalRemainingTokens * market.checkPrice;
+
             const assetCostUsd = currentFloorEth * market.ethPrice;
-            const apr = assetCostUsd > 0 ? (annualAirdropValueUsd / assetCostUsd) * 100 : 0;
+            const roi = assetCostUsd > 0 ? (totalRemainingValueUsd / assetCostUsd) * 100 : 0;
 
             return (
               <div key={tier.name} className="glass-panel p-8 rounded-[28px] border-t-2 border-t-cyan-500/20 group hover:border-cyan-400/50 transition-all flex flex-col">
@@ -223,7 +251,7 @@ const App: React.FC = () => {
                     </div>
                   </div>
                   <div className="pt-6 border-t border-white/5">
-                    <p className="text-[10px] font-bold text-slate-500 uppercase mb-1">Monthly Airdrop</p>
+                    <p className="text-[10px] font-bold text-slate-500 uppercase mb-1">Monthly Airdrop <span className="text-cyan-400 ml-1">({monthsRemaining} months left)</span></p>
                     <div className="flex items-baseline gap-2">
                       <span className="text-2xl font-black text-cyan-400">{tier.airdrop.toLocaleString()} $CHECK</span>
                       {isMarketLoading ? renderSkeleton("h-4 w-16") : <span className="text-xs font-bold text-slate-500 uppercase tracking-tight">≈ ${airdropUsd}</span>}
@@ -232,12 +260,12 @@ const App: React.FC = () => {
                   <div className="pt-4 border-t border-white/5">
                     <div className="flex justify-between items-center">
                       <div>
-                        <p className="text-[10px] font-bold text-slate-500 uppercase mb-1">Yield (APR)</p>
-                        {isMarketLoading ? renderSkeleton("h-8 w-20") : <span className="text-2xl font-black text-green-400">{apr.toFixed(2)}%</span>}
+                        <p className="text-[10px] font-bold text-slate-500 uppercase mb-1">Yield (ROI)</p>
+                        {isMarketLoading ? renderSkeleton("h-8 w-20") : <span className="text-2xl font-black text-green-400">{roi.toFixed(0)}%</span>}
                       </div>
                       <div className="text-right">
-                        <p className="text-[10px] font-bold text-slate-500 uppercase mb-1">Yearly Ret.</p>
-                        {isMarketLoading ? renderSkeleton("h-4 w-16 ml-auto") : <span className="text-xs font-black text-white">${annualAirdropValueUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>}
+                        <p className="text-[10px] font-bold text-slate-500 uppercase mb-1">Total Ret.</p>
+                        {isMarketLoading ? renderSkeleton("h-4 w-16 ml-auto") : <span className="text-xs font-black text-white">${totalRemainingValueUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>}
                       </div>
                     </div>
                   </div>

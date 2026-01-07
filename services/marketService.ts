@@ -13,6 +13,7 @@ export interface MarketData {
   ethernalsFloorEth: number;
   ethernalsFloorSpecial: number;
   floorNftImage: string;
+  floorNftUrl: string; // New Link
   checkHistory: { date: string; value: number }[];
   // New Collection Stats
   totalVolume: number;
@@ -102,6 +103,7 @@ export const fetchFloorPrice = async () => {
   let ethernalsFloorEth = 0.5374;
   let ethernalsFloorSpecial = 0;
   let floorNftImage = "https://i.seadn.io/gae/84041d8e6c469f64989635741f22384a?w=500&auto=format";
+  let floorNftUrl = "https://opensea.io/collection/anichess-ethernals"; // Default to collection
 
   // Default Stats
   let totalVolume = 0;
@@ -148,60 +150,51 @@ export const fetchFloorPrice = async () => {
       }
     }
 
-    // C. Process Listings (Preferred Dynamic Image)
+    // C. Process Listings
     if (listingsRes.ok) {
       const data = await listingsRes.json();
       if (data.listings && data.listings.length > 0) {
         const best = data.listings[0];
 
-        // 1. Try extraction from 'item' field (simplified)
+        // Extract basic image
         const meta = best.item?.metadata;
         const nft = best.item?.nft;
+        let dynamicImg = meta?.image_preview_url || meta?.image_thumbnail_url || meta?.image_url ||
+          nft?.image_preview_url || nft?.image_thumbnail_url || nft?.image_url;
 
-        let dynamicImg = meta?.image_preview_url ||
-          meta?.image_thumbnail_url ||
-          meta?.image_url ||
-          nft?.image_preview_url ||
-          nft?.image_thumbnail_url ||
-          nft?.image_url;
+        // Extract ID and Contract for URL and specific fetch
+        const offer = best.protocol_data?.parameters?.offer?.[0];
+        const tokenId = offer?.identifierOrCriteria;
+        const tokenContract = offer?.token;
+        const finalContract = tokenContract || contractAddress; // Fallback to verified address
 
-        // 2. If missing, verify Token ID and fetch specific NFT
-        if (!dynamicImg) {
-          // Seaport structure: protocol_data.parameters.offer[0].identifierOrCriteria is Token ID
-          const offer = best.protocol_data?.parameters?.offer?.[0];
-          const tokenId = offer?.identifierOrCriteria;
-          const tokenContract = offer?.token;
+        // Generate direct link
+        if (tokenId && finalContract) {
+          floorNftUrl = `https://opensea.io/assets/ethereum/${finalContract}/${tokenId}`;
+        }
 
-          // Prefer the contract from the listing itself if available
-          const finalContract = tokenContract || contractAddress;
-
-          if (tokenId && finalContract) {
-            console.log("[MarketService] Image missing in listing. Fetching specific NFT...");
-            console.log(`[MarketService] Contract: ${finalContract}, ID: ${tokenId}`);
-
-            try {
-              const nftRes = await fetch(`/opensea-api/chain/ethereum/contract/${finalContract}/nfts/${tokenId}`, {
-                headers: { "x-api-key": OPENSEA_API_KEY }
-              });
-
-              if (nftRes.ok) {
-                const nftData = await nftRes.json();
-                const n = nftData.nft;
-                // Try all possible image fields
-                dynamicImg = n?.image_url || n?.image_preview_url || n?.image_thumbnail_url || n?.display_image_url;
-                console.log("[MarketService] Extracted Image URL:", dynamicImg);
-              } else {
-                console.warn("[MarketService] Failed to fetch NFT desc:", nftRes.status);
-              }
-            } catch (err) {
-              console.error("Failed to fetch specific NFT image", err);
+        // Deep Fetch Image if missing
+        if (!dynamicImg && tokenId && finalContract) {
+          console.log("[MarketService] Image missing in listing. Fetching specific NFT...");
+          console.log(`[MarketService] Contract: ${finalContract}, ID: ${tokenId}`);
+          try {
+            const nftRes = await fetch(`/opensea-api/chain/ethereum/contract/${finalContract}/nfts/${tokenId}`, {
+              headers: { "x-api-key": OPENSEA_API_KEY }
+            });
+            if (nftRes.ok) {
+              const nftData = await nftRes.json();
+              const n = nftData.nft;
+              dynamicImg = n?.image_url || n?.image_preview_url || n?.image_thumbnail_url || n?.display_image_url;
+              console.log("[MarketService] Extracted Image URL:", dynamicImg);
+            } else {
+              console.warn("[MarketService] Failed to fetch NFT desc:", nftRes.status);
             }
+          } catch (err) {
+            console.error("Failed to fetch specific NFT image", err);
           }
         }
 
-        if (dynamicImg) {
-          floorNftImage = dynamicImg;
-        }
+        if (dynamicImg) floorNftImage = dynamicImg;
       }
     }
 
@@ -213,6 +206,7 @@ export const fetchFloorPrice = async () => {
     ethernalsFloorEth,
     ethernalsFloorSpecial,
     floorNftImage,
+    floorNftUrl, // Return new field
     totalVolume,
     totalSales,
     totalOwners,

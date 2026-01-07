@@ -27,6 +27,7 @@ const App: React.FC = () => {
       ethernalsFloorEth: 0.142,
       ethernalsFloorSpecial: 1.65,
       floorNftImage: "https://openseauserdata.com/files/84041d8e6c469f64989635741f22384a.png",
+      floorNftUrl: "https://opensea.io/collection/anichess-ethernals",
       checkHistory: [],
       totalVolume: 0,
       totalSales: 0,
@@ -134,6 +135,18 @@ const App: React.FC = () => {
                   </span>
                 )}
                 <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">USD</span>
+              </div>
+
+              {/* New Buy Button */}
+              <div className="mt-8">
+                <a
+                  href={market.floorNftUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="bg-cyan-400 hover:bg-cyan-300 text-black px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-transform hover:scale-105 inline-flex items-center gap-2 shadow-[0_0_20px_rgba(34,211,238,0.4)]"
+                >
+                  BUY THAT NFT NOW! ↗
+                </a>
               </div>
             </div>
 

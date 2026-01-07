@@ -98,24 +98,18 @@ export const fetchFloorPrice = async () => {
   let floorNftImage = "https://openseauserdata.com/files/84041d8e6c469f64989635741f22384a.png";
 
   try {
-    // 1. Fetch Key Stats & Special Listings in Parallel
-    // We try to use the traits filter for Special Effect. 
-    // JSON: [{"traitType":"Background","values":["Special Effect"]}]
-    const traitParams = encodeURIComponent('[{"traitType":"Background","values":["Special Effect"]}]');
-
-    const [statsRes, listingsRes, specialRes] = await Promise.all([
+    // 1. Fetch Key Stats & Listings in Parallel
+    // We fetch a larger batch of listings (limit=50) to manually scan for traits,
+    // as the direct trait filter is unreliable on V2 listings endpoint.
+    const [statsRes, listingsRes] = await Promise.all([
       // A. Collection Stats (Base Floor)
       fetch("/opensea-api/collections/anichess-ethernals/stats", {
         headers: { "x-api-key": OPENSEA_API_KEY, "accept": "application/json" }
       }),
-      // B. General Listings (Image + Fallback)
-      fetch("/opensea-api/listings/collection/anichess-ethernals/all?limit=1&sort_by=price", {
+      // B. General Listings (Limit 50 for scanning)
+      fetch("/opensea-api/listings/collection/anichess-ethernals/all?limit=50&sort_by=price", {
         headers: { "x-api-key": OPENSEA_API_KEY, "accept": "application/json" }
-      }),
-      // C. Special Effect Listings (Trait Floor)
-      fetch(`/opensea-api/listings/collection/anichess-ethernals/all?limit=1&sort_by=price&traits=${traitParams}`, {
-        headers: { "x-api-key": OPENSEA_API_KEY, "accept": "application/json" }
-      }).catch(e => null)
+      })
     ]);
 
     // Process Stats (Base Floor)
@@ -126,40 +120,43 @@ export const fetchFloorPrice = async () => {
       }
     }
 
-    // Process General Listings (Image)
+    // Process Listings
     if (listingsRes.ok) {
       const listingsData = await listingsRes.json();
-      if (listingsData.listings?.[0]) {
+      if (listingsData.listings?.length > 0) {
+        // 1. Get Image from cheapest item
         const best = listingsData.listings[0];
-        // Image extraction
         const meta = best.item?.metadata;
         const nft = best.item?.nft;
         floorNftImage = meta?.image_preview_url || meta?.image_thumbnail_url || meta?.image_url ||
           nft?.image_preview_url || nft?.image_thumbnail_url || nft?.image_url || floorNftImage;
-      }
-    }
 
-    // Process Special Effect Floor
-    if (specialRes && specialRes.ok) {
-      const specialData = await specialRes.json();
-      if (specialData.listings?.[0]) {
-        const bestSpecial = specialData.listings[0];
-        const val = bestSpecial.price?.current?.value;
-        const dec = bestSpecial.price?.current?.decimals || 18;
-        if (val) {
-          ethernalsFloorSpecial = parseFloat(val) / Math.pow(10, dec);
-          console.log("[MarketService] Found Special Effect Floor:", ethernalsFloorSpecial);
+        // 2. Scan for "Special Effect" Trait
+        // We look for the first listing that has the specific trait
+        const specialItem = listingsData.listings.find((req: any) => {
+          const traits = req.item?.metadata?.traits || req.item?.nft?.traits || [];
+          return traits.some((t: any) => t.trait_type === 'Background' && t.value === 'Special Effect');
+        });
+
+        if (specialItem) {
+          const val = specialItem.price?.current?.value;
+          const dec = specialItem.price?.current?.decimals || 18;
+          if (val) {
+            ethernalsFloorSpecial = parseFloat(val) / Math.pow(10, dec);
+            console.log("[MarketService] Found Special Effect Floor via Manual Scan:", ethernalsFloorSpecial);
+          }
+        } else {
+          console.log("[MarketService] No Special Effect items found in top 50 listings.");
+          // Fallback: If not found in top 50, it is likely expensive.
+          // We leave it as 0 to let App.tsx handle fallback (or show 'N/A'?).
+          // App.tsx currently falls back to `base * 1.5` which is a safe estimate if not found cheaply.
         }
       }
-    } else {
-      console.warn("[MarketService] Failed to fetch Special Effect trait floor via API.");
     }
-
   } catch (e) {
     console.error("Floor fetch error", e);
   }
 
-  // Fallback: If special floor still 0, strictly fallback to scalar in App.tsx (we pass 0)
   return { ethernalsFloorEth, ethernalsFloorSpecial, floorNftImage };
 };
 

@@ -93,66 +93,64 @@ export const fetchEthAndCheckPrice = async () => {
 // Separate fetcher for Floor Price (Slower due to OpenSea)
 export const fetchFloorPrice = async () => {
   console.log("[MarketService] Fetching Floor Price...");
+
+  // Default fallbacks
   let ethernalsFloorEth = 0.5374;
-  let ethernalsFloorSpecial = 0; // Default to 0, will be fetched
+  let ethernalsFloorSpecial = 0;
+  // Placeholder image if all else fails
   let floorNftImage = "https://openseauserdata.com/files/84041d8e6c469f64989635741f22384a.png";
 
   try {
-    // 1. Fetch Key Stats & Listings in Parallel
-    // We fetch a larger batch of listings (limit=50) to manually scan for traits,
-    // as the direct trait filter is unreliable on V2 listings endpoint.
-    const [statsRes, listingsRes] = await Promise.all([
-      // A. Collection Stats (Base Floor)
-      fetch("/opensea-api/collections/anichess-ethernals/stats", {
-        headers: { "x-api-key": OPENSEA_API_KEY, "accept": "application/json" }
-      }),
-      // B. General Listings (Limit 50 for scanning)
-      fetch("/opensea-api/listings/collection/anichess-ethernals/all?limit=50&sort_by=price", {
-        headers: { "x-api-key": OPENSEA_API_KEY, "accept": "application/json" }
-      })
-    ]);
+    // 1. Fetch Real-time Listing (Single Source of Truth)
+    // We strictly use the listings endpoint to ensure Price matches Image.
+    const response = await fetch(
+      "/opensea-api/listings/collection/anichess-ethernals/all?limit=1&sort_by=price",
+      { headers: { "x-api-key": OPENSEA_API_KEY, "accept": "application/json" } }
+    );
 
-    // Process Stats (Base Floor)
-    if (statsRes.ok) {
-      const stats = await statsRes.json();
-      if (stats.total?.floor_price) {
-        ethernalsFloorEth = stats.total.floor_price;
-      }
-    }
+    if (response.ok) {
+      const data = await response.json();
+      if (data.listings && data.listings.length > 0) {
+        const best = data.listings[0];
 
-    // Process Listings
-    if (listingsRes.ok) {
-      const listingsData = await listingsRes.json();
-      if (listingsData.listings?.length > 0) {
-        // 1. Get Image from cheapest item
-        const best = listingsData.listings[0];
+        // A. Extract Price (Live)
+        const val = best.price?.current?.value;
+        const dec = best.price?.current?.decimals || 18;
+        if (val) {
+          ethernalsFloorEth = parseFloat(val) / Math.pow(10, dec);
+          console.log("[MarketService] Live Floor Price:", ethernalsFloorEth);
+        }
+
+        // B. Extract Image (Matches the Floor Price Item)
+        // Try multiple paths as OpenSea metadata structure varies
         const meta = best.item?.metadata;
         const nft = best.item?.nft;
-        floorNftImage = meta?.image_preview_url || meta?.image_thumbnail_url || meta?.image_url ||
-          nft?.image_preview_url || nft?.image_thumbnail_url || nft?.image_url || floorNftImage;
 
-        // 2. Scan for "Special Effect" Trait
-        // We look for the first listing that has the specific trait
-        const specialItem = listingsData.listings.find((req: any) => {
-          const traits = req.item?.metadata?.traits || req.item?.nft?.traits || [];
-          return traits.some((t: any) => t.trait_type === 'Background' && t.value === 'Special Effect');
+        const img = meta?.image_preview_url ||
+          meta?.image_thumbnail_url ||
+          meta?.image_url ||
+          nft?.image_preview_url ||
+          nft?.image_thumbnail_url ||
+          nft?.image_url;
+
+        if (img) {
+          floorNftImage = img;
+        }
+      } else {
+        console.warn("[MarketService] No listings found. Falling back to stats.");
+        // Fallback: If no listings, try stats endpoint for at least a price
+        const statsRes = await fetch("/opensea-api/collections/anichess-ethernals/stats", {
+          headers: { "x-api-key": OPENSEA_API_KEY, "accept": "application/json" }
         });
-
-        if (specialItem) {
-          const val = specialItem.price?.current?.value;
-          const dec = specialItem.price?.current?.decimals || 18;
-          if (val) {
-            ethernalsFloorSpecial = parseFloat(val) / Math.pow(10, dec);
-            console.log("[MarketService] Found Special Effect Floor via Manual Scan:", ethernalsFloorSpecial);
-          }
-        } else {
-          console.log("[MarketService] No Special Effect items found in top 50 listings.");
-          // Fallback: If not found in top 50, it is likely expensive.
-          // We leave it as 0 to let App.tsx handle fallback (or show 'N/A'?).
-          // App.tsx currently falls back to `base * 1.5` which is a safe estimate if not found cheaply.
+        if (statsRes.ok) {
+          const stats = await statsRes.json();
+          if (stats.total?.floor_price) ethernalsFloorEth = stats.total.floor_price;
         }
       }
+    } else {
+      console.error("[MarketService] Listing fetch failed:", response.status);
     }
+
   } catch (e) {
     console.error("Floor fetch error", e);
   }

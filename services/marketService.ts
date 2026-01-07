@@ -25,7 +25,66 @@ export interface MarketEvent {
   image?: string;
 }
 
-// ... (fetchEthAndCheckPrice remains unchanged)
+// Individual fetcher for ETH and CHECK (Fast)
+export const fetchEthAndCheckPrice = async () => {
+  console.log("[MarketService] Fetching ETH & CHECK data...");
+
+  let ethPrice = 2400;
+  let checkPrice = 0.000;
+  let check24hChange = 0;
+
+  // Parallel fetch for ETH and CHECK
+  const [ethRes, checkRes] = await Promise.all([
+    fetch("https://api.dexscreener.com/latest/dex/pairs/ethereum/0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640").catch(e => null),
+    fetch(`https://api.dexscreener.com/latest/dex/tokens/${CHECK_ADDRESS}`).catch(e => null)
+  ]);
+
+  // Process ETH
+  if (ethRes && ethRes.ok) {
+    try {
+      const data = await ethRes.json();
+      const pair = data.pair || data.pairs?.[0];
+      if (pair) ethPrice = parseFloat(pair.priceUsd);
+    } catch (e) {
+      console.warn("ETH parse error", e);
+    }
+  }
+
+  // Process CHECK
+  if (checkRes && checkRes.ok) {
+    try {
+      const data = await checkRes.json();
+      const bestPair = data.pairs?.find((p: any) => p.baseToken.address.toLowerCase() === CHECK_ADDRESS.toLowerCase());
+      if (bestPair) {
+        checkPrice = parseFloat(bestPair.priceUsd);
+        check24hChange = bestPair.priceChange.h24;
+      } else if (data.pairs?.[0]) {
+        // Fallback logic
+        if (data.pairs[0].baseToken.symbol === 'CHECK' || data.pairs[0].baseToken.symbol === 'Check') {
+          checkPrice = parseFloat(data.pairs[0].priceUsd);
+          check24hChange = data.pairs[0].priceChange.h24;
+        }
+      }
+    } catch (e) {
+      console.warn("CHECK parse error", e);
+    }
+  }
+
+  // Generate History
+  const trend = check24hChange >= 0 ? 1 : -1;
+  const volatility = 0.05;
+  const checkHistory = Array(7).fill(0).map((_, i) => {
+    const daysAgo = 6 - i;
+    const randomVar = 1 + (Math.random() * volatility * 2 - volatility);
+    const trendFactor = 1 - (trend * 0.02 * daysAgo);
+    return {
+      date: new Date(Date.now() - daysAgo * 86400000).toISOString(),
+      value: checkPrice * trendFactor * randomVar
+    };
+  });
+
+  return { ethPrice, checkPrice, check24hChange, checkHistory };
+};
 
 // Separate fetcher for Floor Price (Slower due to OpenSea)
 export const fetchFloorPrice = async () => {
@@ -72,7 +131,11 @@ export const fetchFloorPrice = async () => {
   return { ethernalsFloorEth, floorNftImage };
 };
 
-// ... (fetchMarketData remains unchanged or is just the composition)
+// Main function can now just combine them if needed, but we prefer using them separately
+export const fetchMarketData = async (): Promise<MarketData> => {
+  const [global, floor] = await Promise.all([fetchEthAndCheckPrice(), fetchFloorPrice()]);
+  return { ...global, ...floor };
+};
 
 export const fetchMarketActivity = async (): Promise<MarketEvent[]> => {
   try {

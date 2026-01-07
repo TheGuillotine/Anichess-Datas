@@ -89,11 +89,26 @@ export const fetchEthAndCheckPrice = async () => {
 // Separate fetcher for Floor Price (Slower due to OpenSea)
 export const fetchFloorPrice = async () => {
   console.log("[MarketService] Fetching Floor Price...");
-  let ethernalsFloorEth = 0.142;
-  let floorNftImage = "https://i.seadn.io/s/raw/files/84041d8e6c469f64989635741f22384a.png";
+  let ethernalsFloorEth = 0.5374; // Updated default/fallback
+  let floorNftImage = "https://openseauserdata.com/files/84041d8e6c469f64989635741f22384a.png";
 
   try {
-    // 1. Try to get real-time floor from listings (for best price accuracy)
+    // 1. Fetch Collection Stats (Primary source for "Official" Floor Price)
+    const osStatsResponse = await fetch(
+      "https://api.opensea.io/api/v2/collections/anichess-ethernals/stats",
+      { headers: { "x-api-key": OPENSEA_API_KEY, "accept": "application/json" } }
+    );
+
+    let priceFound = false;
+    if (osStatsResponse.ok) {
+      const stats = await osStatsResponse.json();
+      if (stats.total?.floor_price) {
+        ethernalsFloorEth = stats.total.floor_price;
+        priceFound = true;
+      }
+    }
+
+    // 2. Fetch Listings (Mainly for the Image, or fallback price)
     const osListingsResponse = await fetch(
       "https://api.opensea.io/api/v2/listings/collection/anichess-ethernals/all?limit=1&sort_by=price",
       { headers: { "x-api-key": OPENSEA_API_KEY, "accept": "application/json" } }
@@ -103,25 +118,19 @@ export const fetchFloorPrice = async () => {
       const listingsData = await osListingsResponse.json();
       if (listingsData.listings?.[0]) {
         const best = listingsData.listings[0];
-        const val = best.price?.current?.value;
-        const dec = best.price?.current?.decimals || 18;
-        if (val) ethernalsFloorEth = parseFloat(val) / Math.pow(10, dec);
 
-        // Optimize Image: Prefer Preview > Thumbnail > Original
+        // If stats failed or returned 0, try to use listing price
+        if (!priceFound) {
+          const val = best.price?.current?.value;
+          const dec = best.price?.current?.decimals || 18;
+          if (val) ethernalsFloorEth = parseFloat(val) / Math.pow(10, dec);
+        }
+
+        // Always try to get the image from the listing
         const meta = best.item?.metadata;
         const nft = best.item?.nft;
         floorNftImage = meta?.image_preview_url || meta?.image_thumbnail_url || meta?.image_url ||
           nft?.image_preview_url || nft?.image_thumbnail_url || nft?.image_url || floorNftImage;
-      }
-    } else {
-      // 2. Fallback to stats if listings fail
-      const osStatsResponse = await fetch(
-        "https://api.opensea.io/api/v2/collections/anichess-ethernals/stats",
-        { headers: { "x-api-key": OPENSEA_API_KEY, "accept": "application/json" } }
-      );
-      if (osStatsResponse.ok) {
-        const stats = await osStatsResponse.json();
-        ethernalsFloorEth = stats.total?.floor_price || ethernalsFloorEth;
       }
     }
   } catch (e) {

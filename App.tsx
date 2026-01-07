@@ -4,7 +4,7 @@ import { ActivityList } from './components/ActivityList';
 import { MarketChart } from './components/MarketChart';
 import { fetchMarketData, fetchMarketActivity, fetchEthAndCheckPrice, fetchFloorPrice, MarketData, MarketEvent } from './services/marketService';
 
-const STORAGE_KEY = 'anichess_market_data';
+const STORAGE_KEY = 'anichess_market_data_v2';
 
 const App: React.FC = () => {
   const [marketEvents, setMarketEvents] = useState<MarketEvent[]>([]);

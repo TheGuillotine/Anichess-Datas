@@ -165,8 +165,22 @@ export const fetchFloorPrice = async () => {
         if (tokenId && tokenContract) floorNftUrl = `https://opensea.io/assets/ethereum/${tokenContract}/${tokenId}`;
 
         if (!dynamicImg && tokenId && tokenContract) {
-          // Deep fetch if needed (skipping for brevity here as it was huge block, assuming rare case)
-          // If users ask for it back, I'll re-add. For now, rely on item fields.
+          try {
+            // Restore Deep Fetch for Image
+            console.log(`[MarketService] Fetching fallback image for ${tokenId}...`);
+            const nftRes = await fetch(`/opensea-api/chain/ethereum/contract/${tokenContract}/nfts/${tokenId}`, {
+              headers: { "x-api-key": OPENSEA_API_KEY }
+            });
+            if (nftRes.ok) {
+              const nftData = await nftRes.json();
+              const fullNft = nftData.nft;
+              if (fullNft) {
+                dynamicImg = fullNft.image_url || fullNft.image_preview_url || fullNft.image_thumbnail_url;
+              }
+            }
+          } catch (e) {
+            console.warn("Fallback fetch failed", e);
+          }
         }
         if (dynamicImg) floorNftImage = dynamicImg;
       }

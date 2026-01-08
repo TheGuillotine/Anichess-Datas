@@ -126,7 +126,7 @@ const App: React.FC = () => {
 
               <div className="flex items-baseline gap-4 mb-2">
                 <span className="text-6xl font-black text-white tabular-nums tracking-tighter flex items-center gap-4">
-                  {isMarketLoading ? renderSkeleton("h-16 w-48") : market.ethernalsFloorEth.toFixed(3)}
+                  {isMarketLoading ? renderSkeleton("h-16 w-48") : market.ethernalsFloorEth.toFixed(4)}
                   <span className="text-2xl font-black text-slate-500">ETH</span>
                 </span>
               </div>
@@ -254,7 +254,7 @@ const App: React.FC = () => {
             } else if (tier.name === 'Void Ethernal' && market.floorVoidEth > 0) {
               currentFloorEth = market.floorVoidEth;
             }
-            const floorEthStr = currentFloorEth.toFixed(3);
+            const floorEthStr = currentFloorEth.toFixed(4);
             const floorUsd = (currentFloorEth * market.ethPrice).toLocaleString(undefined, { maximumFractionDigits: 0 });
 
             const airdropUsd = (tier.airdrop * market.checkPrice).toLocaleString(undefined, { maximumFractionDigits: 0 });
